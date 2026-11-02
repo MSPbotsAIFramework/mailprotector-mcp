@@ -1,0 +1,14 @@
+# Local debug only. Not used for deployment -- the MSPbots environment builds
+# and runs this image independently of this compose file.
+services:
+  mailprotector-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      MCP_HTTP_HOST: "0.0.0.0"
+      MCP_HTTP_PORT: "8080"
+    # Credentials are never set here -- they arrive per request as HTTP
+    # headers from the caller (X-Mailprotector-Auth-Token), see README.md.
