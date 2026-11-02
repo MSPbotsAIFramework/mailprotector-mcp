@@ -90,6 +90,48 @@ DOMAIN_XML = b"""<domain>
 </domain>"""
 
 
+DOMAINS_XML = b"""<domains type="array">
+ <domain>
+   <account_id type="integer">127</account_id>
+   <created_at type="datetime">2010-07-07T20:39:56Z</created_at>
+   <id type="integer">545</id>
+   <name>addtest1.com</name>
+   <parent_id type="integer" nil="true"></parent_id>
+   <updated_at type="datetime">2010-07-07T20:39:57Z</updated_at>
+ </domain>
+ <domain>
+   <account_id type="integer">127</account_id>
+   <created_at type="datetime">2010-03-23T16:08:04Z</created_at>
+   <id type="integer">45</id>
+   <name>testdomain.com</name>
+   <parent_id type="integer" nil="true"></parent_id>
+   <updated_at type="datetime">2010-07-02T18:24:28Z</updated_at>
+ </domain>
+</domains>"""
+
+
+@respx.mock
+async def test_list_domains_no_account_filter(client: MailprotectorClient) -> None:
+    """TC5: no account filter -- every domain visible to the manager."""
+    route = respx.get(f"{BASE_URL}/domains.xml").mock(
+        return_value=httpx.Response(200, content=DOMAINS_XML)
+    )
+    domains = await client.list_domains(account_id=None, limit=50, offset=0)
+    assert [d["name"] for d in domains] == ["addtest1.com", "testdomain.com"]
+    assert route.called
+
+
+@respx.mock
+async def test_list_domains_scoped_to_account(client: MailprotectorClient) -> None:
+    """TC6: scoped to one account -- hits the nested accounts/{id}/domains.xml path."""
+    route = respx.get(f"{BASE_URL}/accounts/127/domains.xml").mock(
+        return_value=httpx.Response(200, content=DOMAINS_XML)
+    )
+    domains = await client.list_domains(account_id=127, limit=50, offset=0)
+    assert len(domains) == 2
+    assert route.called
+
+
 @respx.mock
 async def test_get_domain_handles_nil_parent_id(client: MailprotectorClient) -> None:
     respx.get(f"{BASE_URL}/domains/545.xml").mock(return_value=httpx.Response(200, content=DOMAIN_XML))
@@ -211,12 +253,62 @@ USERS_XML = b"""<users type="array">
 
 @respx.mock
 async def test_list_users_handles_empty_parent_id(client: MailprotectorClient) -> None:
+    """TC13: scoped to a user group."""
     respx.get(f"{BASE_URL}/user_groups/64/users.xml").mock(
         return_value=httpx.Response(200, content=USERS_XML)
     )
     users = await client.list_users(scope_type="user_group", scope_id=64, limit=50, offset=0)
     assert users[0]["parent_id"] is None
     assert users[0]["name"] == "johndoe"
+
+
+@respx.mock
+async def test_list_users_scoped_to_domain(client: MailprotectorClient) -> None:
+    """TC14: scoped to a domain (no group filter) -- distinct URL path from TC13."""
+    route = respx.get(f"{BASE_URL}/domains/32/users.xml").mock(
+        return_value=httpx.Response(200, content=USERS_XML)
+    )
+    users = await client.list_users(scope_type="domain", scope_id=32, limit=50, offset=0)
+    assert len(users) == 1
+    assert route.called
+
+
+CREATED_USER_XML = b"""<user>
+ <id>21898</id>
+ <name>jdoe</name>
+ <user_type>user</user_type>
+ <parent_id></parent_id>
+ <domain_id>32</domain_id>
+ <user_group_id>27</user_group_id>
+ <first_name>John</first_name>
+ <last_name>Doe</last_name>
+ <created_at>2010-07-19 17:52:49 UTC</created_at>
+</user>"""
+
+
+@respx.mock
+async def test_create_user_under_domain_default_group(client: MailprotectorClient) -> None:
+    """TC17: creating a user under a domain returns the created user with a
+    generated id and the domain's default group (vendor-assigned, not chosen
+    by the caller)."""
+    route = respx.post(f"{BASE_URL}/domains/32/users.xml").mock(
+        return_value=httpx.Response(201, content=CREATED_USER_XML)
+    )
+    user = await client.create_user(
+        scope_type="domain",
+        scope_id=32,
+        name="jdoe",
+        password="testpass123",
+        first_name="John",
+        last_name="Doe",
+        user_type="user",
+        parent_id=None,
+    )
+    assert user["id"] == 21898
+    assert user["user_group_id"] == 27  # the vendor's default group, not caller-supplied
+    sent_body = route.calls.last.request.content
+    assert b"<name>jdoe</name>" in sent_body
+    assert b"<password>testpass123</password>" in sent_body
 
 
 @respx.mock
