@@ -5,8 +5,10 @@ from __future__ import annotations
 import uvicorn
 
 from .config import settings
+from .logging_config import configure_logging
 from .server import create_app
 
+configure_logging()
 app = create_app()
 
 

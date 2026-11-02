@@ -325,6 +325,11 @@ class MailprotectorClient:
             headers={"Accept": "application/xml"},
             timeout=httpx.Timeout(connect=_CONNECT_TIMEOUT, read=_READ_TIMEOUT, write=_READ_TIMEOUT, pool=_READ_TIMEOUT),
         )
+        # Set by _request on every attempt (success, retry, or final
+        # failure) so runtime.call_api can log "what did this tool actually
+        # call" without _request needing to know anything about logging.
+        # status_code is 0 for a transport/timeout failure with no response.
+        self.last_call: dict[str, Any] | None = None
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -353,10 +358,14 @@ class MailprotectorClient:
                 )
             except httpx.TimeoutException as exc:
                 last_error = exc
+                self.last_call = {"method": method, "path": path, "status_code": 0}
                 raise MailprotectorAPIError(0, f"Timed out calling Mailprotector: {exc}") from exc
             except httpx.TransportError as exc:
                 last_error = exc
+                self.last_call = {"method": method, "path": path, "status_code": 0}
                 raise MailprotectorAPIError(0, f"Network error calling Mailprotector: {exc}") from exc
+
+            self.last_call = {"method": method, "path": path, "status_code": response.status_code}
 
             if response.status_code < 400:
                 if not response.content:
@@ -374,6 +383,7 @@ class MailprotectorClient:
                 f"{method} {path} -> {response.status_code}: {response.text[:500]}",
             )
         # Unreachable in practice (loop always returns or raises), kept for mypy.
+        self.last_call = {"method": method, "path": path, "status_code": 0}
         raise MailprotectorAPIError(0, f"Exhausted retries calling Mailprotector: {last_error}")
 
     # -- Accounts ----------------------------------------------------------

@@ -7,6 +7,8 @@ POST /mcp, guarded by CredentialMiddleware.
 
 from __future__ import annotations
 
+import uuid
+
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -68,6 +70,11 @@ class CredentialMiddleware:
     Only guards the mounted MCP path; /health must stay reachable without
     any credential so the container's health probe never depends on a
     caller having valid Mailprotector access.
+
+    Also assigns this request's log correlation id (runtime.request_id_var)
+    -- same lifetime and reset discipline as the credential ContextVars
+    below, so every structured log line (logging_config.log_tool_call) for
+    the tool calls made within one inbound HTTP request shares one id.
     """
 
     def __init__(self, app: object, mcp_path: str) -> None:
@@ -100,11 +107,13 @@ class CredentialMiddleware:
 
         auth_reset = runtime.auth_token_var.set(token)
         base_reset = runtime.base_url_var.set(header_map.get(BASE_URL_HEADER) or None)
+        request_id_reset = runtime.request_id_var.set(uuid.uuid4().hex[:12])
         try:
             await self.app(scope, receive, send)
         finally:
             runtime.auth_token_var.reset(auth_reset)
             runtime.base_url_var.reset(base_reset)
+            runtime.request_id_var.reset(request_id_reset)
 
 
 def create_app() -> Starlette:
