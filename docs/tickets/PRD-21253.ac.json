@@ -1,0 +1,63 @@
+[
+  {"id": "TC1", "ac": "AC1", "type": "auto", "text": "Given a valid token, listing accounts with no filters returns accounts with id/name/status/created_at, defaulting to at most 50 results.", "tests": ["tests/test_tools.py::test_list_accounts_default_limit"]},
+  {"id": "TC2", "ac": "AC1", "type": "auto", "text": "Given more than 200 accounts exist (mocked), requesting limit=200 returns at most 200.", "tests": ["tests/test_tools.py::test_list_accounts_respects_max_limit"]},
+  {"id": "TC3", "ac": "AC2", "type": "auto", "text": "Given a known account id, getting that account returns its detail.", "tests": ["tests/test_tools.py::test_get_account_known_id"]},
+  {"id": "TC4", "ac": "AC2", "type": "auto", "text": "Given an unknown account id, getting that account returns a structured not_found error, not a crash.", "tests": ["tests/test_tools.py::test_get_account_unknown_id_returns_not_found"]},
+  {"id": "TC5", "ac": "AC3", "type": "auto", "text": "Given a valid token, listing domains with no account filter returns every domain visible to that manager.", "tests": ["tests/test_tools.py::test_list_domains_no_filter"]},
+  {"id": "TC6", "ac": "AC3", "type": "auto", "text": "Given a valid token and an account id, listing domains scoped to that account returns only that account's domains.", "tests": ["tests/test_tools.py::test_list_domains_scoped_to_account"]},
+  {"id": "TC7", "ac": "AC4", "type": "auto", "text": "Given a known domain id, getting that domain returns its detail.", "tests": ["tests/test_tools.py::test_get_domain_known_id"]},
+  {"id": "TC8", "ac": "AC4", "type": "auto", "text": "Given an unknown domain id, getting that domain returns a structured not_found error.", "tests": ["tests/test_tools.py::test_get_domain_unknown_id_returns_not_found"]},
+  {"id": "TC9", "ac": "AC5", "type": "auto", "text": "Given a valid token and a new domain name, creating that domain returns the created domain's detail including a generated id.", "tests": ["tests/test_tools.py::test_create_domain_returns_created_detail"]},
+  {"id": "TC10", "ac": "AC5", "type": "auto", "text": "Given a domain-create call where the manager's token lacks permission (mocked 403), the tool returns a structured unauthorized error.", "tests": ["tests/test_tools.py::test_create_domain_forbidden_maps_to_unauthorized"]},
+  {"id": "TC11", "ac": "AC6", "type": "auto", "text": "Given a domain id and a date range, the traffic report returns the blocked/spam/delivered counts and a per-user breakdown for that range.", "tests": ["tests/test_tools.py::test_get_domain_traffic_report_with_date_range"]},
+  {"id": "TC12", "ac": "AC7", "type": "auto", "text": "Given a domain id, listing user groups returns each group's name, service list, and user count.", "tests": ["tests/test_tools.py::test_list_user_groups_returns_services_and_count"]},
+  {"id": "TC13", "ac": "AC8", "type": "auto", "text": "Given a user-group id, listing users returns only users in that group.", "tests": ["tests/test_tools.py::test_list_users_scoped_to_user_group"]},
+  {"id": "TC14", "ac": "AC8", "type": "auto", "text": "Given a domain id, listing users (no group filter) returns every user under that domain.", "tests": ["tests/test_tools.py::test_list_users_scoped_to_domain"]},
+  {"id": "TC15", "ac": "AC9", "type": "auto", "text": "Given a known user id, getting that user returns its detail.", "tests": ["tests/test_tools.py::test_get_user_known_id"]},
+  {"id": "TC16", "ac": "AC9", "type": "auto", "text": "Given an unknown user id, getting that user returns a structured not_found error.", "tests": ["tests/test_tools.py::test_get_user_unknown_id_returns_not_found"]},
+  {"id": "TC17", "ac": "AC10", "type": "auto", "text": "Given a domain id and a new username, creating a user returns the created user with a generated id and default group.", "tests": ["tests/test_tools.py::test_create_user_under_domain_default_group"]},
+  {"id": "TC18", "ac": "AC10", "type": "auto", "text": "Given user_type=alias without a parent_id, creating that user returns a structured invalid_argument error.", "tests": ["tests/test_tools.py::test_create_alias_user_without_parent_id_is_invalid_argument"]},
+  {"id": "TC19", "ac": "AC11", "type": "auto", "text": "Given an existing user id and a different group id, moving that user succeeds and is confirmed.", "tests": ["tests/test_tools.py::test_move_user_to_another_group"]},
+  {"id": "TC20", "ac": "AC12", "type": "auto", "text": "Given an existing user id, deleting that user succeeds and is confirmed.", "tests": ["tests/test_tools.py::test_delete_user_known_id"]},
+  {"id": "TC21", "ac": "AC12", "type": "auto", "text": "Given an unknown user id, deleting that user returns not_found, not a silent success.", "tests": ["tests/test_tools.py::test_delete_user_unknown_id_returns_not_found"]},
+  {"id": "TC22", "ac": "AC13", "type": "auto", "text": "Given a domain id, a date range, and direction=inbound, the message-stats tool returns only inbound per-user summaries.", "tests": ["tests/test_tools.py::test_get_user_message_stats_inbound_only"]},
+  {"id": "TC23", "ac": "AC14", "type": "auto", "text": "Given a domain id with one allow rule and one block rule, listing with rule_type=block returns only the block rule.", "tests": ["tests/test_tools.py::test_list_allow_block_rules_filtered_by_type"]},
+  {"id": "TC24", "ac": "AC15", "type": "auto", "text": "Given a domain id, adding one block rule and then listing the rules shows it present.", "tests": ["tests/test_tools.py::test_add_allow_block_rule_then_list_shows_it"]},
+  {
+    "id": "TC25",
+    "ac": "AC15",
+    "type": "manual",
+    "text": "Given a domain id, calling the remove path with an empty rules list is rejected by the tool itself before any call reaches the vendor's destroy-rules endpoint.",
+    "steps": [
+      "Start the service locally with a mocked api_client fixture pre-loaded with two rules",
+      "Call mailprotector_set_allow_block_rules with action=remove, rules=[]",
+      "Observe the tool's response and the mocked client's call log"
+    ],
+    "expect": "The tool returns an invalid_argument error and the mocked client records zero calls to the destroy-rules endpoint",
+    "result": "untested",
+    "notes": "Design-time ledger; dev leg executes and fills result/evidence."
+  },
+  {"id": "TC26", "ac": "AC16", "type": "auto", "text": "Given a domain id, getting spam tolerance returns the effective thresholds and which entity they are inherited from.", "tests": ["tests/test_tools.py::test_get_spam_tolerance_shows_inherited_entity"]},
+  {"id": "TC27", "ac": "AC17", "type": "auto", "text": "Given a domain id, setting new spam-tolerance thresholds and then getting them again reflects the change.", "tests": ["tests/test_tools.py::test_set_spam_tolerance_then_get_reflects_change"]},
+  {"id": "TC28", "ac": "AC17", "type": "auto", "text": "Given a domain id with custom thresholds already set, resetting and then getting again shows the thresholds reverted to inherited.", "tests": ["tests/test_tools.py::test_reset_spam_tolerance_then_get_shows_inherited"]},
+  {"id": "TC29", "ac": "AC17", "type": "auto", "text": "Given possible_spam_max_score < possible_spam_min_score, setting spam tolerance returns a structured invalid_argument error before any call reaches the vendor API.", "tests": ["tests/test_tools.py::test_set_spam_tolerance_rejects_max_below_min"]},
+  {"id": "TC30", "ac": "AC18", "type": "auto", "text": "Given an account id, getting settings returns the effective settings list.", "tests": ["tests/test_tools.py::test_get_settings_for_account"]},
+  {"id": "TC31", "ac": "AC18", "type": "auto", "text": "Given an account id and one named setting, setting it and then getting settings again reflects the new value.", "tests": ["tests/test_tools.py::test_set_settings_then_get_reflects_change"]},
+  {"id": "TC32", "ac": "AC19", "type": "auto", "text": "Given a valid token, getting dashboard stats returns the manager-scoped summary data.", "tests": ["tests/test_tools.py::test_get_dashboard_stats"]},
+  {"id": "TC33", "ac": "AC20", "type": "auto", "text": "Given two simulated concurrent requests carrying two different X-Mailprotector-Auth-Token values, processing them concurrently results in each response reflecting only its own token.", "tests": ["tests/test_middleware.py::test_concurrent_requests_do_not_leak_credentials"]},
+  {"id": "TC34", "ac": "AC20", "type": "auto", "text": "Given a request to /mcp with no X-Mailprotector-Auth-Token header, the response is 401 and the body lists the required header, before any outbound call to Mailprotector.", "tests": ["tests/test_middleware.py::test_missing_auth_header_returns_401_with_header_name"]},
+  {
+    "id": "TC35",
+    "ac": "AC3",
+    "type": "manual",
+    "text": "Given a real Mailprotector manager token, running initialize -> tools/list -> tools/call for mailprotector_list_domains against the live API returns a well-formed result.",
+    "steps": [
+      "Obtain a real manager auth token from whoever owns a Mailprotector demo/test account",
+      "Run the service locally with that token in X-Mailprotector-Auth-Token",
+      "Call initialize, then tools/list, then tools/call mailprotector_list_domains"
+    ],
+    "expect": "tools/list shows 20 tools; tools/call returns 200 with a well-formed domain list (or an empty list if the test account has none)",
+    "result": "untested",
+    "notes": "Needs a real vendor account; not available at design time. Per references/mcp-track.md section 3, this does not block delivery."
+  }
+]
