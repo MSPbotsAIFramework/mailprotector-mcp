@@ -28,3 +28,20 @@ Verification (re-run in full, not scoped to only the new code):
 - Chinese-content scan (`grep -rnP '[\x{4e00}-\x{9fff}]'`) on `src/` and `tests/`: clean, 0 hits. The only hit anywhere in the repo is inside this review document's own round-1 finding text, which quotes the SOP's Chinese section names verbatim as a citation -- pre-existing from round 1, not new content from this fix.
 
 Commit: dev/PRD-21253 @ 7e0acae
+
+## Round 2 · 2026-11-02 · reviewed dev/PRD-21253 @ d7390c7 (base main @ 0e5f2ba)
+
+Status: frozen @ d7390c7
+
+Verdict: approved
+
+### Round 1 must-fix verified
+
+1. Re-ran independently (not just trusting the Fixes section): `uv run pytest -q` -> 60 passed, matching the dev leg's count. `grep -rnP '[\x{4e00}-\x{9fff}]' src tests` -> clean. Built the image with `sudo docker build --platform linux/amd64`, ran it, and confirmed first-hand: `/health` -> 200; `/mcp` with no auth header -> 401 listing `X-Mailprotector-Auth-Token`; a real `tools/call` for `mailprotector_get_account` with a fake token produced exactly one structured JSON log line (`tool`, `request_id`, `mailprotector_path`, `status_code`, `error_code`, `latency_ms` all present) and `docker logs | grep -c <the fake token>` -> 0. The round-1 gap (no logger anywhere in the repo) is resolved: `runtime.call_api` now logs on every exit path (`not_configured`, success, `MailprotectorAPIError`), confirmed by both the new unit/integration tests and this independent re-run.
+
+### Findings (this round's diff: `2b1a163...7e0acae`)
+
+1. [suggestion] `src/mailprotector_mcp/runtime.py:34-46` (`_caller_tool_name_and_args`) — recovering the tool name and args via `sys._getframe(2)` instead of passing them explicitly is fragile against future refactors: it silently depends on every one of the 20 tool functions keeping the exact shape `return await call_api(_call)` with no extra frame in between (a decorator, a wrapper, an extra helper call) ever being introduced. If that convention is ever broken, this does not raise -- it just logs the wrong `tool`/`args` for whatever frame happens to sit two levels up, which would not be caught by `tests/test_observability.py`'s existing assertions unless a test exists for every tool. It works correctly today and is exercised through both the in-process `mcp.call_tool()` path and the real HTTP dispatch path (`test_request_id_is_shared_across_tool_calls_in_one_http_request`), so this is not blocking, but a one-line comment in each new tool module (or a lint/test that asserts the convention) would make a future violation loud instead of silent.
+2. [suggestion] `src/mailprotector_mcp/logging_config.py:36-52` (`_redact_value`) — the tech design's Observability line commits to a "redacted **arg summary**", and the function already summarizes lists/dicts to a bare count specifically because "rules/settings lists can carry customer addresses" (own comment, `logging_config.py:44-46`). The same reasoning is not extended to plain string args: `mailprotector_create_user`'s `name` (the mailbox username), `first_name`, and `last_name` are logged in full (not masked -- they don't match the password/token/secret/credential/auth key-name filter, and are well under the 60-char truncation threshold). This is personal/account data, not a credential, so it does not fall under SOP §6/§11's explicit "凭据 / token / 敏感业务数据" prohibition (which this fix fully satisfies), and the round-1 finding was about the complete absence of logging, not this nuance -- so not a must-fix. Worth a follow-up: masking or truncating known-PII keys (`name`, `first_name`, `last_name`) the same way the collection case already is.
+
+No must-fix found in this round's diff. Round 1's must-fix is closed.
