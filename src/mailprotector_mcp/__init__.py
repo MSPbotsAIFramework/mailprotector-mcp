@@ -1,0 +1,1 @@
+"""Mailprotector MCP server package."""
